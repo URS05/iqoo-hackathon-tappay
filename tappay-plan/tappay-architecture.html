@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TapPay architecture and stack</title>
+  <style>
+    :root {
+      --bg: #181818;
+      --text: #e8e8e8;
+      --muted: #9a9a9a;
+      --line: #2a2a2a;
+      --fill: #222;
+      --card: #1e1e1e;
+      --accent: #6b9fff;
+      --ok: #5dbb7a;
+      --warn: #d4a017;
+      --bad: #e06c75;
+      --info: #6b9fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 system-ui, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; }
+    h2 { font-size: 18px; font-weight: 600; margin: 28px 0 10px; }
+    h3 { font-size: 16px; font-weight: 600; margin: 16px 0 8px; }
+    p { margin: 0 0 12px; }
+    .lede { color: var(--muted); margin-bottom: 20px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 20px; }
+    .tabs button {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .tabs button.on { background: var(--accent); color: #111; border-color: var(--accent); }
+    .panel { display: none; }
+    .panel.on { display: block; }
+    .hr { height: 1px; background: var(--line); margin: 8px 0 20px; }
+    .grid { display: grid; gap: 12px; }
+    .g2 { grid-template-columns: 1fr 1fr; }
+    .g3 { grid-template-columns: 1fr 1fr 1fr; }
+    .g4 { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 800px) {
+      .g2, .g3, .g4 { grid-template-columns: 1fr; }
+    }
+    .stat, .card {
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stat .v { font-size: 18px; font-weight: 600; }
+    .stat .l { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .pill {
+      font-size: 11px;
+      border: 1px solid var(--line);
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: var(--text);
+    }
+    .pill.on { background: #333; }
+    .note {
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--info);
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: var(--fill);
+      margin-bottom: 16px;
+    }
+    .note.warn { border-left-color: var(--warn); }
+    .note.ok { border-left-color: var(--ok); }
+    .note .t { font-weight: 600; margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 8px 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; background: var(--fill); }
+    tr:nth-child(even) td { background: #1c1c1c; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: #666; }
+    .dot.info { background: var(--info); }
+    .dot.ok { background: var(--ok); }
+    .dot.warn { background: var(--warn); }
+    .dot.bad { background: var(--bad); }
+    code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.92em;
+      background: #2a2a2a;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .muted { color: var(--muted); font-size: 12px; }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0 20px;
+    }
+    .node {
+      border: 1px solid var(--line);
+      background: var(--fill);
+      border-radius: 6px;
+      padding: 8px 12px;
+      min-width: 120px;
+    }
+    .node b { display: block; font-size: 12px; }
+    .node span { display: block; font-size: 11px; color: var(--muted); }
+    .arrow { color: var(--accent); font-size: 16px; }
+    .col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .bar-row { display: grid; grid-template-columns: 120px 1fr 28px; gap: 8px; align-items: center; margin: 6px 0; font-size: 12px; }
+    .bar-track { height: 10px; background: #2a2a2a; border-radius: 4px; overflow: hidden; display: flex; }
+    .bar-seg { height: 100%; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin: 8px 0 16px; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+    .pie-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TapPay architecture and stack</h1>
+    <p class="lede">Closed-loop NFC tap-to-pay. Merchant terminal is any Android phone with NFC. Tag is MVP identity. Local copy of the plan. Android-first.</p>
+
+    <div class="note warn">
+      <div class="t">LOCKED MVP: TapPay</div>
+      Must ship: Physical NTAG only (no HCE until later). Android phone as merchant terminal (reader mode). Cloud ledger (Firestore atomic deduct). Mock UPI top-up. CPU fraud score (NPU optional). One APK, three roles (User / Merchant / Admin). Live balance on both phones. Insufficient funds + freeze.
+    </div>
+    <div class="note" style="border-left-color: var(--bad)">
+      <div class="t">Out of scope until core works</div>
+      Real UPI, HCE, iOS, separate admin web, balance-on-tag, NPU dependency.
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+    <div class="hr"></div>
+
+    <section class="panel on" id="overview">
+      <div class="note">
+        <div class="t">Phone-first, tag as MVP</div>
+        Any Android phone with NFC is the merchant terminal (reader). The wristband or card is only an identity token. Balance lives in the cloud, not as cash on the tag. Palm-vein later replaces the tag. The tap protocol stays the same.
+      </div>
+      <div class="grid g4">
+        <div class="stat"><div class="v">Android</div><div class="l">NFC phones, merchant + user</div></div>
+        <div class="stat"><div class="v">Android-first</div><div class="l">iOS is out of scope for now</div></div>
+        <div class="stat"><div class="v">On-device ML</div><div class="l">CPU default, NPU optional</div></div>
+        <div class="stat"><div class="v">Closed loop</div><div class="l">Prepaid, not UPI tap</div></div>
+      </div>
+      <h2>Product in one sentence</h2>
+      <p>Wonderla / metro / event-wristband prepaid: bind a tag, load rupees, tap at a stall, balance drops, both screens update. No UPI in the critical path of the tap. Mock UPI only on top-up.</p>
+      <h2>Capability layers (not a schedule)</h2>
+      <p class="muted">Red Light = phone-only surfaces you can show even if the network is ugly. Green Light = money correctness. Build both; they are layers, not a clock.</p>
+      <div class="grid g2">
+        <div class="card"><h4>Device + UI <span class="pill">Red Light</span></h4><p>Role switch (User / Merchant). Merchant full-screen tap target and amount keypad. User wallet, load-money sheet, fake UPI success. NFC read UID + NDEF write on the merchant Android phone. Local mock ledger so the UI never bricks. Confirmation animation, fail states, haptics.</p></div>
+        <div class="card"><h4>Ledger + rules <span class="pill on">Green Light</span></h4><p>Firebase project, rules, anonymous auth. Collections for tags, wallets, transactions. Atomic deduct: read, check, subtract, log. Realtime listeners on both roles. Fraud features + merchant warning. Freeze / insufficient-funds paths.</p></div>
+      </div>
+      <h2>What you are not building</h2>
+      <table>
+        <thead><tr><th>Out of scope for MVP</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Real UPI / NPCI / acquiring</td><td>Closed-loop prepaid is the product</td></tr>
+          <tr><td>Google Pay / CATEGORY_PAYMENT HCE</td><td>Fights the system wallet picker</td></tr>
+          <tr><td>Balance stored only on the tag</td><td>Cloned tag would print money</td></tr>
+          <tr><td>iOS merchant terminal</td><td>Out of scope for now. Android only</td></tr>
+          <tr><td>Separate admin web app</td><td>Third role in the same APK is enough</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="flow">
+      <h2>End-to-end payment graph</h2>
+      <p class="muted">Happy path left to right. Wallet is cloud source of truth.</p>
+      <div class="flow">
+        <div class="node"><b>1. Register</b><span>Bind UID → user</span></div><span class="arrow">→</span>
+        <div class="node"><b>NFC tag</b><span>NDEF + UID</span></div><span class="arrow">→</span>
+        <div class="node"><b>2. Load</b><span>Mock UPI</span></div><span class="arrow">→</span>
+        <div class="node"><b>Wallet</b><span>Firestore paise</span></div>
+      </div>
+      <div class="flow">
+        <div class="node"><b>3. Tap</b><span>At stall</span></div><span class="arrow">→</span>
+        <div class="node"><b>Merchant reader</b><span>IsoDep / NDEF</span></div><span class="arrow">→</span>
+        <div class="node"><b>4. Deduct</b><span>Atomic txn</span></div><span class="arrow">→</span>
+        <div class="node"><b>Fraud score</b><span>On-device</span></div><span class="arrow">→</span>
+        <div class="node"><b>5. Confirm</b><span>User + merchant</span></div>
+      </div>
+      <h2>Actors and what they own</h2>
+      <div class="grid g3">
+        <div class="card"><h4>User app <span class="pill">User phone</span></h4><p>Register tag, show balance, mock UPI top-up, transaction list. Does not need to be at the stall if the tag is already bound.</p></div>
+        <div class="card"><h4>Merchant app <span class="pill on">Hero device</span></h4><p>Full-screen tap target, amount keypad, NFC reader session, success/fail, live queue of taps. This is the judge visual.</p></div>
+        <div class="card"><h4>Admin <span class="pill">Optional</span></h4><p>Tag list, freeze tag, replay ledger. If time slips, merchant history stands in. Same APK, third role.</p></div>
+      </div>
+      <h2>Four product loops</h2>
+      <div class="grid g2">
+        <div><h3>Register</h3><p>User holds tag to their phone (or merchant onboards it). App writes NDEF: app id, schema version, display name. Reads hardware UID. Creates <code>tags/{uid}</code> and <code>wallets/{uid}</code> at 0 paise.</p></div>
+        <div><h3>Load</h3><p>User picks ₹100 / ₹500 / custom. Fake UPI sheet succeeds. Cloud increment on wallet. Tag is not rewritten with the new balance.</p></div>
+        <div><h3>Pay</h3><p>Merchant enters amount, listens. Tag enters field. UID lookup, fraud score, Firestore transaction, both UIs confirm.</p></div>
+        <div><h3>Recover</h3><p>Lost tag: freeze UID, issue new tag, transfer wallet pointer. Insufficient funds and NFC cancel are first-class screens.</p></div>
+      </div>
+      <h2>Tap sequence (what happens in the field)</h2>
+      <table>
+        <thead><tr><th>Step</th><th>Where</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td><span class="dot info"></span>Discover tag</td><td>Android NFC</td><td>enableReaderMode, NDEF + IsoDep</td></tr>
+          <tr><td><span class="dot info"></span>Read UID + payload</td><td>Merchant app</td><td>UID is the account key</td></tr>
+          <tr><td><span class="dot warn"></span>Optional HMAC check</td><td>App</td><td>Detect rewritten / cloned NDEF</td></tr>
+          <tr><td><span class="dot warn"></span>Run fraud features</td><td>CPU, later NPU</td><td>Amount, velocity, hour, merchant</td></tr>
+          <tr><td><span class="dot ok"></span>Firestore transaction</td><td>Cloud</td><td>if balance &gt;= amount then deduct</td></tr>
+          <tr><td><span class="dot ok"></span>Write confirmation</td><td>Both clients</td><td>Realtime listener, haptic + UI</td></tr>
+          <tr><td><span class="dot bad"></span>Do not write new balance to tag</td><td>Tag</td><td>Tag is ID, not a ledger</td></tr>
+        </tbody>
+      </table>
+      <div class="note warn">
+        <div class="t">Do not store rupees only on the tag</div>
+        Offline NDEF balance is a demo cheat and a security fail. If hall Wi-Fi dies, queue the tap locally on the merchant phone and sync when the network returns. Cloud (or a properly signed offline counter) stays the authority. Do not fall back to writing the new balance onto the tag.
+      </div>
+    </section>
+
+    <section class="panel" id="nfc">
+      <h2>Android NFC: three layers, three jobs</h2>
+      <div class="grid g3">
+        <div class="card"><h4>NDEF</h4><p>Primary MVP path. Write a small record: app id, tag version, user display name. Read on tap. Cheap NTAG213/215 wristbands are more reliable for the demo than phone-as-card.</p></div>
+        <div class="card"><h4>IsoDep / APDU</h4><p>Looks like a real card conversation (SELECT AID then GET DATA). Useful later for DESFire, or if you add HCE after tags work. Optional polish, not the MVP.</p></div>
+        <div class="card"><h4>HCE (HostApduService)</h4><p>Strictly P2 / bonus. User phone emulates a wristband. Merchant still uses reader mode. Only attempt this after the physical-tag flow is rock solid. If you do it, use a custom AID in <code>CATEGORY_OTHER</code>, never Google Pay’s payment category.</p></div>
+      </div>
+      <h2>Who talks to whom</h2>
+      <div class="col">
+        <div class="node"><b>Merchant UI</b><span>Amount + listen</span></div><span class="arrow">↓</span>
+        <div class="node"><b>NfcAdapter reader</b><span>Phone as POS</span></div><span class="arrow">↓</span>
+        <div class="node"><b>NFC-A / ISO-DEP</b><span>13.56 MHz field</span></div>
+        <div class="flow" style="margin-top:8px">
+          <div class="node"><b>Physical tag</b><span>MVP wristband</span></div>
+          <span class="muted">or</span>
+          <div class="node"><b>HCE on user phone</b><span>P2 / bonus only</span></div>
+        </div>
+      </div>
+      <h2>HCE vs terminal - the mix-up</h2>
+      <table>
+        <thead><tr><th>Mode</th><th>This device is…</th><th>TapPay use</th></tr></thead>
+        <tbody>
+          <tr><td><span class="dot ok"></span>Reader mode</td><td>Initiator / POS</td><td>Any Android NFC phone</td></tr>
+          <tr><td><span class="dot ok"></span>Tag / card</td><td>Target / wallet</td><td>Wristband NTAG - MVP</td></tr>
+          <tr><td><span class="dot info"></span>HCE</td><td>Phone pretending to be a card</td><td>P2 bonus, after tags work</td></tr>
+          <tr><td><span class="dot bad"></span>Secure Element / GPay</td><td>Bank card emulation</td><td>Out of scope</td></tr>
+        </tbody>
+      </table>
+      <h2>APIs you will actually call</h2>
+      <table>
+        <thead><tr><th>API</th><th>Role in TapPay</th><th>Priority</th></tr></thead>
+        <tbody>
+          <tr><td>NfcAdapter.enableReaderMode</td><td>Merchant terminal loop</td><td>P0</td></tr>
+          <tr><td>Ndef.get / writeNdefMessage</td><td>Register + display name</td><td>P0</td></tr>
+          <tr><td>Tag.getId()</td><td>Stable account key</td><td>P0</td></tr>
+          <tr><td>IsoDep.connect / transceive</td><td>Optional APDU polish</td><td>P1</td></tr>
+          <tr><td>HostApduService.processCommandApdu</td><td>HCE bonus only after tags work</td><td>P2</td></tr>
+          <tr><td>CardEmulation CATEGORY_PAYMENT</td><td>Avoid - conflicts with GPay</td><td>Skip</td></tr>
+        </tbody>
+      </table>
+      <h2>Suggested APDU sketch (IsoDep / HCE)</h2>
+      <table>
+        <thead><tr><th>Command</th><th>Meaning</th><th>Response</th></tr></thead>
+        <tbody>
+          <tr><td>00 A4 04 00 + AID</td><td>SELECT TapPay app</td><td>FCI + 90 00</td></tr>
+          <tr><td>80 CA 00 01</td><td>GET UID / wallet id</td><td>uid bytes + 90 00</td></tr>
+          <tr><td>80 CA 00 02</td><td>GET display name</td><td>UTF-8 + 90 00</td></tr>
+          <tr><td>Anything else</td><td>Unsupported</td><td>6D 00</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Custom AID in the Fxxxxx proprietary range, e.g. F00154415001 (“TAP”). Never claim Visa/Mastercard AIDs.</p>
+      <h2>Hardware notes (Android)</h2>
+      <div class="note warn">
+        <div class="t">OEM skins can fight a background reader</div>
+        Keep the merchant screen in the foreground with <code>FLAG_KEEP_SCREEN_ON</code>. Test long-running <code>enableReaderMode</code> sessions on real Android phones early (Pixel, Samsung, vivo/iQOO, Xiaomi, OnePlus, etc.), not the night before judging. Some OEM skins have broken stable NFC reader sessions. Do not assume stock-Android NFC behavior on every device.
+      </div>
+      <p>Target is any Android phone with NFC reader mode. No vendor-specific NFC SDK. iOS is out of scope for now. A cheap NTAG213/215 wristband plus two Android phones is enough to demo.</p>
+      <p>Confirm each demo phone can both read and write NDEF before you design around DESFire. Put a mock <code>NfcAdapter</code> behind the same API so UI work does not need a tag.</p>
+      <h2>Libraries - do not write NFC from scratch</h2>
+      <table>
+        <thead><tr><th>Library</th><th>NDEF</th><th>IsoDep</th><th>HCE</th><th>Fit</th></tr></thead>
+        <tbody>
+          <tr><td>react-native-nfc-manager</td><td>Yes</td><td>Yes</td><td>Yes (Android)</td><td>Best</td></tr>
+          <tr><td>Flutter nfc_manager</td><td>Yes</td><td>Yes</td><td>No (extra pkg)</td><td>Good</td></tr>
+          <tr><td>nfc_pro_manager (Flutter)</td><td>Limited</td><td>Yes</td><td>Yes</td><td>Heavier</td></tr>
+          <tr><td>Native Kotlin only</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Slow UI</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="stack">
+      <div class="note ok">
+        <div class="t">Decision: React Native (Expo Dev Client) + Cloud Firestore</div>
+        One APK, User / Merchant / Admin role switch. react-native-nfc-manager covers NDEF and IsoDep for the physical-tag MVP. HCE is in the same library but it is strictly P2. Firestore gives atomic deduct and live listeners without writing a backend.
+      </div>
+      <h2>Why React Native over Flutter</h2>
+      <p>Flutter NFC is fine for NDEF, which is what the MVP actually needs. HCE would need extra glue on Flutter, and we are not counting on HCE anyway. For an Android-first demo, one library plus the Firebase JS SDK is fewer moving parts. If the team already thinks in Dart, Flutter is still viable. Do not rewrite mid-event.</p>
+      <h2>Hackathon fit score (0–10, judgment)</h2>
+      <p class="muted">Higher is better for this build. Scored from library docs and Android HCE constraints.</p>
+      <div class="legend">
+        <span><span class="sw" style="background:#6b9fff"></span>React Native + RN NFC Manager</span>
+        <span><span class="sw" style="background:#5dbb7a"></span>Flutter + nfc_manager</span>
+      </div>
+      <div id="fit-bars"></div>
+      <h2>Balance store: atomic deduct vs live UI</h2>
+      <p class="muted">Firestore wins deduct correctness; RTDB wins raw pub/sub; Supabase is SQL-nice but more setup.</p>
+      <div class="legend">
+        <span><span class="sw" style="background:#6b9fff"></span>Cloud Firestore</span>
+        <span><span class="sw" style="background:#5dbb7a"></span>Realtime Database</span>
+        <span><span class="sw" style="background:#d4a017"></span>Supabase</span>
+      </div>
+      <div id="db-bars"></div>
+      <h2>Lock this stack</h2>
+      <table>
+        <thead><tr><th>Layer</th><th>Pick</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>App</td><td>Expo + prebuild / Dev Client</td><td>NFC is native; Expo Go is not enough</td></tr>
+          <tr><td>NFC</td><td>react-native-nfc-manager</td><td>NDEF + IsoDep for tags; HCE is P2 only</td></tr>
+          <tr><td>State / pay</td><td>Cloud Firestore transactions</td><td>balance -= amount if sufficient</td></tr>
+          <tr><td>Live UI</td><td>onSnapshot on wallet + txns</td><td>User and merchant stay in sync</td></tr>
+          <tr><td>Auth</td><td>Anonymous + display name</td><td>No SMS OTP in a noisy hall</td></tr>
+          <tr><td>Top-up</td><td>Fake UPI sheet</td><td>Do not integrate a real PSP</td></tr>
+          <tr><td>Fraud</td><td>Tiny TFLite or JS model</td><td>Tabular features, not a vision net</td></tr>
+          <tr><td>Admin</td><td>Same app, third role</td><td>Skip a separate web panel</td></tr>
+        </tbody>
+      </table>
+      <h2>Expo / Android flags you will need</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Permission</td><td>android.permission.NFC</td></tr>
+          <tr><td>Feature</td><td>android.hardware.nfc (required=true for merchant)</td></tr>
+          <tr><td>HCE feature</td><td>android.hardware.nfc.hce required=false; skip until P2</td></tr>
+          <tr><td>minSdk</td><td>26+ is enough for reader mode</td></tr>
+          <tr><td>Keep awake</td><td>FLAG_KEEP_SCREEN_ON on the merchant screen, always</td></tr>
+          <tr><td>Config plugin</td><td>react-native-nfc-manager; HCE XML only if P2 is live</td></tr>
+        </tbody>
+      </table>
+      <h2>Folder shape when you build</h2>
+      <p>Single app: <code>app/user</code>, <code>app/merchant</code>, <code>app/admin</code>, <code>src/nfc</code>, <code>src/wallet</code>, <code>src/fraud</code>. Mock NFC behind the same functions as the real adapter.</p>
+    </section>
+
+    <section class="panel" id="data">
+      <h2>Firestore shape</h2>
+      <table>
+        <thead><tr><th>Collection</th><th>Key</th><th>Fields</th></tr></thead>
+        <tbody>
+          <tr><td>tags</td><td>uid hex</td><td>userId, status (active|frozen), ndefVersion, hmac, createdAt</td></tr>
+          <tr><td>wallets</td><td>uid hex</td><td>balancePaise, updatedAt, lastMerchantId</td></tr>
+          <tr><td>txns</td><td>auto id</td><td>uid, merchantId, amountPaise, type (load|pay|refund), status, fraudScore, createdAt</td></tr>
+          <tr><td>merchants</td><td>id</td><td>name, stall, deviceId</td></tr>
+          <tr><td>users</td><td>auth uid</td><td>displayName, tagUids[]</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Store money as integer paise. Never floats. Deduct inside a transaction: read wallet, abort if frozen or short, else increment and write the txn.</p>
+      <div class="note" style="border-left-color: var(--bad)">
+        <div class="t">Rules must gate deduct</div>
+        Security rules must allow the deduct transaction only from a properly authenticated merchant-role session. Anonymous auth is fine for users loading balance and watching their wallet. The pay path needs a role check. Do not leave Firestore rules wide open because you are short on time. That is a real fail, not a demo shortcut.
+      </div>
+      <h2>Security model (honest, not bank-grade)</h2>
+      <table>
+        <thead><tr><th>Threat</th><th>MVP control</th></tr></thead>
+        <tbody>
+          <tr><td><span class="dot warn"></span>Cloned UID</td><td>HMAC on NDEF + freeze in admin; UID is not secret</td></tr>
+          <tr><td><span class="dot warn"></span>Rewritten NDEF</td><td>Server ignores tag balance; HMAC mismatch warns</td></tr>
+          <tr><td><span class="dot ok"></span>Double tap / race</td><td>Firestore transaction + client debounce</td></tr>
+          <tr><td><span class="dot ok"></span>Overdraw</td><td>Transaction abort; merchant sees insufficient</td></tr>
+          <tr><td><span class="dot info"></span>Stolen phone as POS</td><td>Merchant PIN or device binding later</td></tr>
+          <tr><td><span class="dot bad"></span>Open Firestore rules</td><td>Merchant-role only for deduct; never test-mode open</td></tr>
+          <tr><td><span class="dot warn"></span>Hall Wi-Fi drop</td><td>Queue on merchant device; never write balance to tag</td></tr>
+        </tbody>
+      </table>
+      <h2>On-device fraud (NPU angle)</h2>
+      <div class="note warn">
+        <div class="t">CPU scorer first, NPU only if it loads</div>
+        Ship a tiny tabular scorer that runs on CPU. That is the default demo path. QNN / Hexagon / LiteRT is an optional upgrade only if it loads cleanly on that phone. Do not bet the pitch on Qualcomm AI Hub or QNN compiling on a vendor skin the first night. CPU fallback is the default demo path. NPU is a nice-to-have if it works.
+      </div>
+      <p>Some Snapdragon phones can run LiteRT / TFLite via QNN in principle. Treat that as extra credit. Do not over-claim NPU on stage unless you have seen inference succeed on the device you are holding.</p>
+      <div class="grid g2">
+        <div>
+          <h3>Feature vector</h3>
+          <table>
+            <thead><tr><th>Feature</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>amount_paise</td><td>Outlier vs stall mean</td></tr>
+              <tr><td>minutes_since_last</td><td>Velocity</td></tr>
+              <tr><td>taps_last_2min</td><td>Burst / cloned tag</td></tr>
+              <tr><td>hour_of_day</td><td>Odd hours</td></tr>
+              <tr><td>same_merchant_repeat</td><td>Test taps vs real spend</td></tr>
+              <tr><td>balance_ratio</td><td>Drain-to-zero pattern</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3>Outputs</h3>
+          <p>Score 0–1. Below threshold: silent allow. Mid: merchant warning, still pay. High: block and show “anomaly - try again / staff.” Log score on the txn so the admin list looks intelligent.</p>
+          <p class="muted">Example decision thresholds (not live data): Allow &lt; 0.45, warn to 0.75, block above.</p>
+          <div class="bar-row"><span>Allow</span><div class="bar-track"><div class="bar-seg" style="width:45%;background:var(--ok)"></div></div><span>0.45</span></div>
+          <div class="bar-row"><span>Warn</span><div class="bar-track"><div class="bar-seg" style="width:75%;background:var(--warn)"></div></div><span>0.75</span></div>
+          <div class="bar-row"><span>Block</span><div class="bar-track"><div class="bar-seg" style="width:100%;background:var(--bad)"></div></div><span>1.00</span></div>
+        </div>
+      </div>
+      <h2>Identity roadmap (same rails)</h2>
+      <div class="flow">
+        <div class="node"><b>Now</b><span>NFC tag UID</span></div><span class="arrow">→</span>
+        <div class="node"><b>Next</b><span>HCE phone wallet</span></div><span class="arrow">→</span>
+        <div class="node"><b>Later</b><span>Palm vein ID</span></div>
+      </div>
+      <p>Same merchant reader, same wallet, same fraud scorer. Only the identity probe changes.</p>
+    </section>
+
+    <section class="panel" id="pitch">
+      <h2>Judge demo path</h2>
+      <p class="muted">Ordered beats, not a timed agenda. Practice until this is boring.</p>
+      <table>
+        <thead><tr><th>Beat</th><th>Action</th><th>What they should feel</th></tr></thead>
+        <tbody>
+          <tr><td>Hook</td><td>Role switch → Merchant tap screen</td><td>The phone IS the POS</td></tr>
+          <tr><td>Load</td><td>Load ₹500 on tag from User app</td><td>Wonderla wristband</td></tr>
+          <tr><td>Tap</td><td>Tap tag on merchant Android phone, deduct ₹80</td><td>Faster than UPI QR</td></tr>
+          <tr><td>Proof</td><td>Both screens update live</td><td>Real-time, not a fake toast</td></tr>
+          <tr><td>Edge</td><td>Burst tap flagged or blocked</td><td>On-device fraud / NPU story</td></tr>
+          <tr><td>Vision</td><td>Palm-vein one-liner + diagram</td><td>Tag is disposable; protocol stays</td></tr>
+        </tbody>
+      </table>
+      <div class="grid g2">
+        <div>
+          <h3>Share of attention in the slot</h3>
+          <p class="muted">Relative weight of beats - not a clock.</p>
+          <div class="pie-wrap">
+            <svg width="180" height="180" viewBox="0 0 42 42">
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#2a2a2a" stroke-width="8"/>
+              <!-- 15+35+20+18+12 = 100 -->
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#6b9fff" stroke-width="8" stroke-dasharray="15 85" stroke-dashoffset="25" />
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#5dbb7a" stroke-width="8" stroke-dasharray="35 65" stroke-dashoffset="10" />
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#9a9a9a" stroke-width="8" stroke-dasharray="20 80" stroke-dashoffset="75" />
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#d4a017" stroke-width="8" stroke-dasharray="18 82" stroke-dashoffset="55" />
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#e06c75" stroke-width="8" stroke-dasharray="12 88" stroke-dashoffset="37" />
+            </svg>
+            <div class="legend" style="flex-direction:column;align-items:flex-start">
+              <span><span class="sw" style="background:#6b9fff"></span>Hook + POS 15%</span>
+              <span><span class="sw" style="background:#5dbb7a"></span>Load + tap 35%</span>
+              <span><span class="sw" style="background:#9a9a9a"></span>Live sync 20%</span>
+              <span><span class="sw" style="background:#d4a017"></span>Fraud / NPU 18%</span>
+              <span><span class="sw" style="background:#e06c75"></span>Palm-vein 12%</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3>Spoken hook</h3>
+          <p>“UPI is a QR stare. Parks and campuses already solved this with wristbands. We put the terminal on the phone you already have.”</p>
+          <p>Show merchant screen first (big tap target). Then user loads ₹500. Tap. Both phones tick. Fast second tap → velocity anomaly on device. End on: “Tag is a stand-in for a palm.”</p>
+        </div>
+      </div>
+      <h2>FinTech track framing</h2>
+      <div class="grid g2">
+        <div><h3>Why phone-first (Android)</h3><p>No extra POS dongle. Any Android phone with NFC can be the stall terminal. That is the product: the phone does the job of a machine, across vendors, not one flagship.</p></div>
+        <div><h3>Real-world analogues</h3><p>Wonderla rechargeable bands, metro CSC/NCMC, college fests, food courts, stadiums. Same loop: prepaid identity + tap + ledger. You are not inventing payments - you are collapsing the terminal.</p></div>
+      </div>
+      <h2>Core features vs bonus</h2>
+      <table>
+        <thead><tr><th>Must show</th><th>Bonus if stable</th><th>Do not start</th></tr></thead>
+        <tbody>
+          <tr><td>Register tag + show UID</td><td>HCE phone-as-tag</td><td>Real UPI / PSP</td></tr>
+          <tr><td>Load balance (mock UPI)</td><td>Admin freeze + ledger</td><td>Palm-vein hardware</td></tr>
+          <tr><td>Merchant tap deduct</td><td>IsoDep APDU theatre</td><td>iOS app</td></tr>
+          <tr><td>Live balance on both phones</td><td>QNN NPU delegate</td><td>Custom web dashboard</td></tr>
+          <tr><td>Insufficient funds UI</td><td>JS/TFLite fraud score</td><td>Emulator-only demo</td></tr>
+        </tbody>
+      </table>
+      <h2>Questions judges will poke</h2>
+      <table>
+        <thead><tr><th>Question</th><th>Honest answer</th></tr></thead>
+        <tbody>
+          <tr><td>Is this UPI?</td><td>No. Closed-loop prepaid. Top-up can be UPI later.</td></tr>
+          <tr><td>Can I clone the tag?</td><td>UID + server HMAC. Freeze in admin. Not bank-grade.</td></tr>
+          <tr><td>Why not Paytm QR?</td><td>Hands full, queues, kids/parks, sub-second tap.</td></tr>
+          <tr><td>Where is the NPU?</td><td>CPU tabular scorer by default. QNN only if it actually loads.</td></tr>
+          <tr><td>iOS?</td><td>Out of scope for now. Android NFC phones only.</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <div class="t">Backup if NFC flakes on stage</div>
+        Keep a 20-second screen recording of a real tap, plus a “simulate tap” button on the merchant screen that runs the same Firestore path. Judges should still see live sync on the second phone.
+      </div>
+    </section>
+  </div>
+  <script>
+    const tabs = [
+      ["overview", "Overview"],
+      ["flow", "System flow"],
+      ["nfc", "NFC architecture"],
+      ["stack", "Tech stack"],
+      ["data", "Data + fraud"],
+      ["pitch", "Demo + pitch"],
+    ];
+    const bar = document.getElementById("tabs");
+    tabs.forEach(([id, label], i) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      if (i === 0) b.className = "on";
+      b.onclick = () => {
+        document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("on"));
+        document.querySelectorAll(".panel").forEach((x) => x.classList.remove("on"));
+        b.classList.add("on");
+        document.getElementById(id).classList.add("on");
+      };
+      bar.appendChild(b);
+    });
+
+    function grouped(el, cats, series, max) {
+      const colors = ["#6b9fff", "#5dbb7a", "#d4a017"];
+      cats.forEach((c, i) => {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.style.gridTemplateColumns = "110px 1fr";
+        const lab = document.createElement("span");
+        lab.textContent = c;
+        const track = document.createElement("div");
+        track.className = "bar-track";
+        track.style.height = "16px";
+        track.style.gap = "2px";
+        track.style.background = "transparent";
+        series.forEach((s, si) => {
+          const seg = document.createElement("div");
+          seg.className = "bar-seg";
+          seg.style.width = (s.data[i] / max) * (100 / series.length) + "%";
+          seg.style.background = colors[si];
+          seg.title = s.name + ": " + s.data[i];
+          track.appendChild(seg);
+        });
+        row.appendChild(lab);
+        row.appendChild(track);
+        el.appendChild(row);
+      });
+    }
+    grouped(document.getElementById("fit-bars"),
+      ["NDEF speed", "IsoDep", "HCE", "UI speed", "Firebase"],
+      [
+        { name: "RN", data: [9, 8, 8, 9, 9] },
+        { name: "Flutter", data: [9, 8, 4, 8, 7] },
+      ], 10);
+    grouped(document.getElementById("db-bars"),
+      ["Atomic pay", "Realtime UI", "Auth", "Setup time", "Offline"],
+      [
+        { name: "Firestore", data: [9, 8, 9, 8, 7] },
+        { name: "RTDB", data: [5, 10, 9, 9, 8] },
+        { name: "Supabase", data: [8, 8, 8, 6, 6] },
+      ], 10);
+  </script>
+</body>
+</html>

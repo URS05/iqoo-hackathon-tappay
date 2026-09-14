@@ -1,98 +1,92 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Button, Field, Sub, Title } from "@/components/ui";
+import { Colors, Spacing } from "@/constants/theme";
+import type { Role } from "@/firebase/types";
+import { useSession } from "@/session/SessionContext";
+import { getNfc } from "@/nfc";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+export default function RolePicker() {
+  const router = useRouter();
+  const session = useSession();
+  const [name, setName] = useState(session.displayName);
+  const nfc = getNfc();
+
+  async function go(role: Role) {
+    await session.setDisplayName(name.trim() || "Guest");
+    await session.enterRole(role);
+    router.push(`/${role}`);
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={styles.safe}>
+      <Title>TapPay</Title>
+      <Sub>Closed-loop NFC tap-to-pay. The phone is the POS. The tag is only an ID.</Sub>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <View style={styles.pills}>
+        <Text style={styles.pill}>Ledger: {session.backend}</Text>
+        <Text style={styles.pill}>NFC: {nfc.kind}</Text>
+      </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Field
+        value={name}
+        onChangeText={setName}
+        placeholder="Display name"
+        autoCapitalize="words"
+      />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <Pressable accessibilityRole="button" accessibilityLabel="User" style={[styles.role, { borderColor: Colors.user }]} onPress={() => go("user")}>
+        <Text style={styles.roleKicker}>User</Text>
+        <Text style={styles.roleTitle}>Bind tag, load rupees, watch balance</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Merchant" style={[styles.role, { borderColor: Colors.merchant }]} onPress={() => go("merchant")}>
+        <Text style={[styles.roleKicker, { color: Colors.merchant }]}>Merchant</Text>
+        <Text style={styles.roleTitle}>Amount keypad + tap to deduct</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Admin" style={[styles.role, { borderColor: Colors.admin }]} onPress={() => go("admin")}>
+        <Text style={[styles.roleKicker, { color: Colors.admin }]}>Admin</Text>
+        <Text style={styles.roleTitle}>Freeze tags, replay ledger</Text>
+      </Pressable>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {!session.ready ? <Sub>Signing in…</Sub> : null}
+      <Button label="Continue as user" onPress={() => go("user")} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: Colors.bg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  pills: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  pill: {
+    color: Colors.muted,
+    borderColor: Colors.line,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    fontSize: 12,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  role: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: Colors.card,
+    gap: 4,
   },
-  title: {
-    textAlign: 'center',
+  roleKicker: {
+    color: Colors.user,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: 12,
+    letterSpacing: 1,
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  roleTitle: { color: Colors.text, fontSize: 16 },
 });

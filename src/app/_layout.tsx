@@ -1,18 +1,26 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Colors } from "@/constants/theme";
+import { SessionProvider } from "@/session/SessionContext";
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SessionProvider>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: Colors.bg },
+          headerTintColor: Colors.text,
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: Colors.bg },
+        }}
+      >
+        <Stack.Screen name="index" options={{ title: "TapPay", headerShown: false }} />
+        <Stack.Screen name="user/index" options={{ title: "User wallet" }} />
+        <Stack.Screen name="merchant/index" options={{ title: "Merchant POS" }} />
+        <Stack.Screen name="admin/index" options={{ title: "Admin" }} />
+      </Stack>
+    </SessionProvider>
   );
 }
