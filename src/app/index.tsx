@@ -3,7 +3,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
@@ -64,11 +63,11 @@ export default function Onboarding() {
           </Pressable>
         </View>
 
-        <Animated.View key={index} entering={FadeIn.duration(280)} exiting={FadeOut.duration(180)} style={styles.copy}>
+        <View style={styles.copy}>
           <Text style={styles.kicker}>{slide.kicker} — FINFLOW</Text>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.body}>{slide.body}</Text>
-        </Animated.View>
+        </View>
 
         <View style={styles.art}>
           <View style={styles.orb} />
