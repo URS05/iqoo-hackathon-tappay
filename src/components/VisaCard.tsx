@@ -43,7 +43,7 @@ export function VisaCard({ holder, last4, label = "TapPay Visa", valid = "09/29"
 const styles = StyleSheet.create({
   card: {
     width: 320,
-    height: 196,
+    height: 176,
     borderRadius: Radius.lg,
     padding: 22,
     overflow: "hidden",

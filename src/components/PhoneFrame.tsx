@@ -64,10 +64,7 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
         <View style={styles.phoneWrap}>
           <View style={styles.bezel}>
             <View style={styles.island} />
-            <View style={styles.screen}>
-              <View style={styles.islandSpacer} />
-              {children}
-            </View>
+            <View style={styles.screen}>{children}</View>
             <View style={styles.homeBar} />
           </View>
         </View>
@@ -123,40 +120,32 @@ const styles = StyleSheet.create({
     maxHeight: "100%",
     backgroundColor: "#0A1A14",
     borderRadius: 48,
-    padding: 10,
-    shadowColor: "#08261C",
-    shadowOpacity: 0.35,
-    shadowRadius: 40,
-    shadowOffset: { width: 0, height: 18 },
+    paddingTop: 14,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+    boxShadow: "0 18px 40px rgba(8, 38, 28, 0.35)",
+    alignItems: "center",
   },
   island: {
-    position: "absolute",
-    top: 18,
-    alignSelf: "center",
     width: 118,
     height: 28,
     borderRadius: 20,
     backgroundColor: "#000",
-    zIndex: 2,
-    left: "50%",
-    marginLeft: -59,
+    marginBottom: 8,
   },
   screen: {
     flex: 1,
+    alignSelf: "stretch",
     borderRadius: 38,
     overflow: "hidden",
     backgroundColor: Colors.cream,
   },
   homeBar: {
-    position: "absolute",
-    bottom: 18,
-    alignSelf: "center",
     width: 128,
     height: 5,
     borderRadius: 4,
     backgroundColor: "rgba(255,255,255,0.28)",
-    left: "50%",
-    marginLeft: -64,
+    marginTop: 8,
   },
   desktop: { flex: 1, flexDirection: "row", gap: 18, minHeight: 0 },
   sidebar: {

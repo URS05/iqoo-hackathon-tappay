@@ -117,6 +117,7 @@ export default function HomeScreen() {
             <TxnRow key={t.id} txn={t} />
           ))}
         </View>
+        <View style={{ height: 12 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -124,7 +125,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.cream },
-  scroll: { padding: 20, paddingBottom: 28, gap: 12 },
+  scroll: { padding: 20, paddingBottom: 36, gap: 12 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   hello: { color: Colors.muted, fontWeight: "600" },
   name: { color: Colors.ink, fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },

@@ -89,14 +89,14 @@ export default function CardsScreen() {
 
         <Text style={styles.section}>Mock UPI top-up</Text>
         <View style={styles.row}>
-          <Pressable accessibilityRole="button" style={styles.chip} onPress={() => void load(100)}>
+          <Pressable accessibilityRole="button" style={styles.chip} accessibilityLabel="Load 100 rupees" onPress={() => void load(100)}>
             <Text style={styles.chipText}>₹100</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" style={styles.chip} onPress={() => void load(500)}>
+          <Pressable accessibilityRole="button" style={styles.chip} accessibilityLabel="Load 500 rupees" onPress={() => void load(500)}>
             <Text style={styles.chipText}>₹500</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" style={styles.chip} onPress={() => void load(1000)}>
-            <Text style={styles.chipText}>₹1,000</Text>
+          <Pressable accessibilityRole="button" style={styles.chip} accessibilityLabel="Load 1000 rupees" onPress={() => void load(1000)}>
+            <Text style={styles.chipText}>₹1000</Text>
           </Pressable>
         </View>
         <Field value={custom} onChangeText={setCustom} keyboardType="numeric" placeholder="Custom rupees" />

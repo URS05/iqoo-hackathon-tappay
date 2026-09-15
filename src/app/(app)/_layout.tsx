@@ -10,6 +10,7 @@ export default function AppTabs() {
       tabBar={mode === "desktop" ? () => null : (props) => <FinTabBar {...props} />}
       screenOptions={{
         headerShown: false,
+        tabBarStyle: { position: "relative", backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
