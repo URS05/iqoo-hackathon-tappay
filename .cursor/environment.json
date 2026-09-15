@@ -1,0 +1,11 @@
+{
+  "name": "TapPay",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "Expo Web",
+      "command": "CI=1 EXPO_NO_TELEMETRY=1 npx expo start --web --port 8081"
+    }
+  ],
+  "ports": [8081]
+}

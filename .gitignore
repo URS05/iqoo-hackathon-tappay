@@ -35,7 +35,8 @@ yarn-error.*
 .env*.local
 
 # editor
-.cursor/
+.cursor/*
+!.cursor/environment.json
 .vscode/
 
 # typescript
