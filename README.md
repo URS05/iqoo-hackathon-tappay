@@ -1,8 +1,16 @@
-# TapPay — FinFlow edition
+# TapPay
 
-Closed-loop NFC tap-to-pay for the iQOO Hackathon, rebuilt with a **forest green + lime** FinFlow-style mobile UI.
+Closed-loop NFC tap-to-pay for the iQOO Hackathon. One Android APK, three roles (User / Merchant / Admin). The tag is an ID. Balance is integer paise in a ledger.
 
-One Android APK, three roles (User / Merchant / Admin). The tag is an ID. Balance is integer paise in a ledger.
+A second, independent UI lives in **[finflow/](finflow/)** (forest-green FinFlow mockup). This root app is the original TapPay UI.
+
+```bash
+# original TapPay
+npm install && npx expo start --web
+
+# FinFlow edition (does not replace this app)
+cd finflow && npm install && npx expo start --web
+```
 
 Expo Go cannot do NFC. Use a **dev client** (`npx expo run:android`).
 
@@ -13,9 +21,7 @@ npm install
 npx expo start --web
 ```
 
-Web shows a phone mockup on wide screens (toggle **Phone / Desktop**). Emulator and web use the **local ledger** + **mock NFC**.
-
-Demo path: skip onboarding → **Cards** → Simulate bind → Load ₹500 → **Home** → Quick send → **Profile** → Merchant → Simulate tap.
+Web and the emulator use the **local ledger** + **mock NFC**. Role switch on one device: User → Simulate bind → Load ₹500 → Merchant → Simulate tap.
 
 ## Android (real NFC)
 
@@ -36,7 +42,7 @@ Without env vars the app keeps using the on-device ledger.
 
 ## Layout
 
-- `src/app` — onboarding, Home / Cards / Activity / Profile tabs, merchant POS, admin
+- `src/app` — role picker, user wallet, merchant POS, admin
 - `src/nfc` — mock + Android `react-native-nfc-manager` (NDEF write, reader mode)
 - `src/wallet` — local AsyncStorage ledger or Cloud Firestore transactions
 - `src/fraud/scoreTap.ts` — stub (always 0)

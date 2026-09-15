@@ -1,15 +1,12 @@
-import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text } from "react-native";
 
-import { Button } from "@/components/ui";
-import { Colors, Radius } from "@/constants/theme";
+import { Button, Card, Label, Screen, Sub, Title } from "@/components/ui";
+import { Colors } from "@/constants/theme";
 import type { TagDoc, TxnDoc, WalletDoc } from "@/firebase/types";
 import { formatInr, getLedger } from "@/wallet";
 
 export default function AdminScreen() {
-  const router = useRouter();
   const ledger = getLedger();
   const [tags, setTags] = useState<{ uid: string; tag: TagDoc; wallet?: WalletDoc }[]>([]);
   const [txns, setTxns] = useState<TxnDoc[]>([]);
@@ -33,19 +30,15 @@ export default function AdminScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()}>
-          <Text style={styles.back}>← Profile</Text>
-        </Pressable>
-        <Text style={styles.kicker}>ADMIN</Text>
-        <Text style={styles.title}>Control room</Text>
-        <Text style={styles.sub}>{status}</Text>
+    <Screen>
+      <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }}>
+        <Title>Admin</Title>
+        <Sub>{status}</Sub>
         <Button label="Refresh tags" tone="ghost" onPress={() => void refresh()} />
-        {tags.length === 0 ? <Text style={styles.sub}>No tags yet. Bind from Cards.</Text> : null}
+        {tags.length === 0 ? <Sub>No tags yet. Bind from the user role.</Sub> : null}
         {tags.map((row) => (
-          <View key={row.uid} style={styles.card}>
-            <Text style={styles.name}>{row.tag.displayName}</Text>
+          <Card key={row.uid}>
+            <Label>{row.tag.displayName}</Label>
             <Text style={styles.mono}>{row.uid}</Text>
             <Text style={styles.meta}>
               {row.tag.status} · {formatInr(row.wallet?.balancePaise ?? 0)}
@@ -55,38 +48,23 @@ export default function AdminScreen() {
             ) : (
               <Button label="Freeze tag" tone="danger" onPress={() => void toggle(row.uid, true)} />
             )}
-          </View>
+          </Card>
         ))}
-        <View style={styles.card}>
-          <Text style={styles.name}>Ledger</Text>
+        <Card>
+          <Label>Ledger</Label>
           {txns.map((t) => (
             <Text key={t.id} style={styles.meta}>
               {new Date(t.createdAt).toLocaleTimeString()} · {t.type} {formatInr(t.amountPaise)} · {t.status} ·{" "}
               {t.uid.slice(0, 10)}
             </Text>
           ))}
-        </View>
+        </Card>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
-  scroll: { padding: 20, gap: 12, paddingBottom: 40 },
-  back: { color: Colors.forest, fontWeight: "800" },
-  kicker: { color: Colors.forestSoft, fontWeight: "800", letterSpacing: 2, fontSize: 12 },
-  title: { fontSize: 30, fontWeight: "800", color: Colors.ink, letterSpacing: -0.8 },
-  sub: { color: Colors.muted, lineHeight: 20 },
-  card: {
-    backgroundColor: Colors.paper,
-    borderRadius: Radius.lg,
-    padding: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.line,
-  },
-  name: { fontWeight: "800", color: Colors.ink, fontSize: 16 },
-  mono: { color: Colors.forestMid, fontFamily: "monospace" },
+  mono: { color: Colors.accent, fontFamily: "monospace" },
   meta: { color: Colors.muted },
 });

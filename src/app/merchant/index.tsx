@@ -1,12 +1,10 @@
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
-import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Button, Field } from "@/components/ui";
-import { Colors, Radius } from "@/constants/theme";
+import { Button, Card, Field, Screen, Sub, Title } from "@/components/ui";
+import { Colors } from "@/constants/theme";
 import { scoreTap } from "@/fraud/scoreTap";
 import type { TxnDoc } from "@/firebase/types";
 import { getNfc, type TagPayload } from "@/nfc";
@@ -20,7 +18,6 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
 
 export default function MerchantPos() {
   useKeepAwake();
-  const router = useRouter();
   const session = useSession();
   const ledger = getLedger();
   const nfc = getNfc();
@@ -30,13 +27,13 @@ export default function MerchantPos() {
   const [balance, setBalance] = useState<number | null>(null);
   const [txns, setTxns] = useState<TxnDoc[]>([]);
   const [uidOverride, setUidOverride] = useState(session.lastTagUid ?? "");
-  const debounce = useRef(0);
 
   useEffect(() => {
     if (session.lastTagUid && !uidOverride) {
       setUidOverride(session.lastTagUid);
     }
   }, [session.lastTagUid, uidOverride]);
+  const debounce = useRef(0);
 
   useEffect(() => {
     return ledger.subscribeTxns((all) => setTxns(all.slice(0, 8)));
@@ -111,110 +108,97 @@ export default function MerchantPos() {
     setAmount((a) => (a + k).replace(/^0+(?=\d)/, "").slice(0, 8));
   }
 
+  const tone =
+    phase === "success"
+      ? Colors.ok
+      : phase === "insufficient" || phase === "frozen"
+        ? Colors.warn
+        : phase === "error"
+          ? Colors.danger
+          : phase === "listen"
+            ? Colors.merchant
+            : Colors.accent;
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()}>
-          <Text style={styles.back}>← Profile</Text>
-        </Pressable>
-        <Text style={styles.kicker}>MERCHANT</Text>
-        <Text style={styles.title}>Stall POS</Text>
-        <Text style={styles.sub}>Screen stays awake. Tag is ID only — deduct is atomic in the ledger.</Text>
+    <Screen>
+      <Title>Stall POS</Title>
+      <Sub>Screen stays awake. Tag is ID only — deduct is atomic in the ledger.</Sub>
 
-        <View style={styles.target}>
-          <Text style={styles.amount}>₹{amount || "0"}</Text>
-          <View style={styles.phasePill}>
-            <Text style={styles.phase}>{phase.toUpperCase()}</Text>
-          </View>
-          <Text style={styles.msg}>{message}</Text>
-          {balance != null ? <Text style={styles.msg}>Wallet {formatInr(balance)}</Text> : null}
-        </View>
+      <View style={[styles.target, { borderColor: tone }]}>
+        <Text style={styles.amount}>₹{amount || "0"}</Text>
+        <Text style={[styles.phase, { color: tone }]}>{phase.toUpperCase()}</Text>
+        <Text style={styles.msg}>{message}</Text>
+        {balance != null ? <Text style={styles.msg}>Wallet {formatInr(balance)}</Text> : null}
+      </View>
 
-        <View style={styles.keys}>
-          {KEYS.map((k) => (
-            <Pressable accessibilityRole="button" accessibilityLabel={k} key={k} onPress={() => key(k)} style={styles.key}>
-              <Text style={styles.keyText}>{k}</Text>
-            </Pressable>
-          ))}
-        </View>
+      <View style={styles.keys}>
+        {KEYS.map((k) => (
+          <Pressable accessibilityRole="button" accessibilityLabel={k} key={k} onPress={() => key(k)} style={styles.key}>
+            <Text style={styles.keyText}>{k}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-        {phase === "listen" ? (
-          <Button label="Cancel listen" tone="ghost" onPress={() => setPhase("idle")} />
-        ) : (
-          <Button
-            label="Listen for tap"
-            tone="forest"
-            onPress={() => {
-              setPhase("listen");
-              setMessage("Hold the wristband to this phone.");
-            }}
-          />
-        )}
-
-        <Field
-          value={uidOverride}
-          onChangeText={setUidOverride}
-          placeholder="UID for simulate tap"
-          autoCapitalize="characters"
-        />
+      {phase === "listen" ? (
+        <Button label="Cancel listen" tone="ghost" onPress={() => setPhase("idle")} />
+      ) : (
         <Button
-          label="Simulate tap"
-          onPress={async () => {
-            const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
-            await onTag(payload);
+          label="Listen for tap"
+          tone="merchant"
+          onPress={() => {
+            setPhase("listen");
+            setMessage("Hold the wristband to this phone.");
           }}
         />
+      )}
 
-        <View style={styles.list}>
-          {txns.map((t) => (
-            <Text key={t.id} style={styles.txn}>
-              {t.type} {formatInr(t.amountPaise)} · {t.uid.slice(0, 8)} · {t.status}
-            </Text>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <Field
+        value={uidOverride}
+        onChangeText={setUidOverride}
+        placeholder="UID for simulate tap"
+        autoCapitalize="characters"
+      />
+      <Button
+        label="Simulate tap"
+        onPress={async () => {
+          const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
+          await onTag(payload);
+        }}
+      />
+
+      <Card>
+        {txns.map((t) => (
+          <Text key={t.id} style={styles.txn}>
+            {t.type} {formatInr(t.amountPaise)} · {t.uid.slice(0, 8)} · {t.status}
+          </Text>
+        ))}
+      </Card>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
-  scroll: { padding: 20, gap: 12, paddingBottom: 40 },
-  back: { color: Colors.forest, fontWeight: "800" },
-  kicker: { color: Colors.forestSoft, fontWeight: "800", letterSpacing: 2, fontSize: 12 },
-  title: { fontSize: 30, fontWeight: "800", color: Colors.ink, letterSpacing: -0.8 },
-  sub: { color: Colors.muted, lineHeight: 20 },
   target: {
-    minHeight: 168,
-    borderRadius: 28,
+    minHeight: 180,
+    borderWidth: 2,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    padding: 18,
-    backgroundColor: Colors.forest,
-    gap: 8,
+    padding: 16,
+    backgroundColor: Colors.card,
+    gap: 6,
   },
-  amount: { color: Colors.lime, fontSize: 48, fontWeight: "800", letterSpacing: -1 },
-  phasePill: { backgroundColor: "rgba(212,241,87,0.16)", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 },
-  phase: { color: Colors.lime, fontWeight: "800", letterSpacing: 2, fontSize: 12 },
-  msg: { color: "rgba(255,255,255,0.7)", textAlign: "center" },
+  amount: { color: Colors.text, fontSize: 48, fontWeight: "800" },
+  phase: { fontWeight: "800", letterSpacing: 2 },
+  msg: { color: Colors.muted, textAlign: "center" },
   keys: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   key: {
     width: "31%",
-    backgroundColor: Colors.paper,
-    borderRadius: 16,
-    paddingVertical: 16,
+    backgroundColor: Colors.cardAlt,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.line,
   },
-  keyText: { color: Colors.ink, fontSize: 20, fontWeight: "700" },
-  list: {
-    backgroundColor: Colors.paper,
-    borderRadius: Radius.lg,
-    padding: 14,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: Colors.line,
-  },
-  txn: { color: Colors.ink, fontWeight: "600" },
+  keyText: { color: Colors.text, fontSize: 20, fontWeight: "700" },
+  txn: { color: Colors.text },
 });

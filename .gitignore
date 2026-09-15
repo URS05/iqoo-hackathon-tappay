@@ -46,3 +46,5 @@ example
 # generated native folders
 /ios
 /android
+/finflow/ios
+/finflow/android

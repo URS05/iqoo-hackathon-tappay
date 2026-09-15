@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -10,7 +9,7 @@ import {
   type ViewProps,
 } from "react-native";
 
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 
 export function Screen({ children, style, ...rest }: ViewProps) {
   return (
@@ -28,86 +27,77 @@ export function Card({ children, style, ...rest }: ViewProps) {
   );
 }
 
-export function Title({ children }: { children: ReactNode }) {
+export function Title({ children }: { children: string }) {
   return <Text style={styles.title}>{children}</Text>;
 }
 
-export function Sub({ children }: { children: ReactNode }) {
+export function Sub({ children }: { children: string }) {
   return <Text style={styles.sub}>{children}</Text>;
 }
 
-export function Label({ children, color }: { children: ReactNode; color?: string }) {
+export function Label({ children, color }: { children: string; color?: string }) {
   return <Text style={[styles.label, color ? { color } : null]}>{children}</Text>;
 }
 
 export function Button({
   label,
-  tone = "lime",
+  tone = "accent",
   ...rest
-}: PressableProps & {
-  label: string;
-  tone?: "lime" | "forest" | "ghost" | "danger" | "ok" | "warn" | "accent" | "merchant";
-}) {
-  const map = toneMap(tone);
+}: PressableProps & { label: string; tone?: "accent" | "ok" | "warn" | "danger" | "ghost" | "merchant" }) {
+  const bg =
+    tone === "ghost"
+      ? "transparent"
+      : tone === "ok"
+        ? Colors.ok
+        : tone === "warn"
+          ? Colors.warn
+          : tone === "danger"
+            ? Colors.danger
+            : tone === "merchant"
+              ? Colors.merchant
+              : Colors.accent;
+  const fg = tone === "ghost" ? Colors.text : "#0B0F14";
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.btn,
-        { backgroundColor: map.bg, borderColor: map.border, borderWidth: map.border === "transparent" ? 0 : 1 },
-        { opacity: pressed || rest.disabled ? 0.7 : 1 },
-      ]}
+      style={({ pressed }) => [styles.btn, { backgroundColor: bg, opacity: pressed || rest.disabled ? 0.7 : 1 }]}
       {...rest}
     >
-      <Text style={[styles.btnText, { color: map.fg }]}>{label}</Text>
+      <Text style={[styles.btnText, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
 
-function toneMap(tone: string) {
-  switch (tone) {
-    case "forest":
-    case "merchant":
-    case "accent":
-      return { bg: Colors.forest, fg: Colors.lime, border: "transparent" };
-    case "ghost":
-      return { bg: "transparent", fg: Colors.ink, border: Colors.line };
-    case "danger":
-      return { bg: Colors.danger, fg: Colors.white, border: "transparent" };
-    case "ok":
-      return { bg: Colors.lime, fg: Colors.forestDeep, border: "transparent" };
-    case "warn":
-      return { bg: Colors.warn, fg: Colors.forestDeep, border: "transparent" };
-    default:
-      return { bg: Colors.lime, fg: Colors.forestDeep, border: "transparent" };
-  }
-}
-
 export function Field(props: TextInputProps) {
-  return <TextInput placeholderTextColor={Colors.mutedSoft} style={styles.input} {...props} />;
+  return (
+    <TextInput
+      placeholderTextColor={Colors.muted}
+      style={styles.input}
+      {...props}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.cream,
+    backgroundColor: Colors.bg,
     padding: Spacing.lg,
     gap: Spacing.md,
   },
   card: {
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.card,
     borderColor: Colors.line,
     borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderRadius: 16,
     padding: Spacing.md,
     gap: 8,
   },
   title: {
-    color: Colors.ink,
+    color: Colors.text,
     fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.6,
+    fontWeight: "700",
   },
   sub: {
     color: Colors.muted,
@@ -115,26 +105,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   label: {
-    color: Colors.ink,
+    color: Colors.text,
     fontSize: 15,
-    fontWeight: "600",
   },
   btn: {
-    borderRadius: Radius.pill,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
   },
   btnText: {
-    fontWeight: "800",
-    fontSize: 15,
-    letterSpacing: 0.2,
+    fontWeight: "700",
+    fontSize: 16,
   },
   input: {
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.cardAlt,
     borderColor: Colors.line,
     borderWidth: 1,
-    borderRadius: Radius.md,
-    color: Colors.ink,
+    borderRadius: 12,
+    color: Colors.text,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,

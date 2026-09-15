@@ -17,5 +17,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["tappay-plan", "node_modules"]
+  "exclude": ["tappay-plan", "finflow", "node_modules"]
 }
