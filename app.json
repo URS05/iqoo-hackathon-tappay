@@ -17,7 +17,7 @@
     "android": {
       "package": "com.tappay.hackathon",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0F14",
+        "backgroundColor": "#0F3D2E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -35,7 +35,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0B0F14",
+          "backgroundColor": "#0F3D2E",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
