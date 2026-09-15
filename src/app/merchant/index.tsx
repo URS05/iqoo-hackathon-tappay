@@ -1,12 +1,26 @@
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
+import { useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Button, Card, Field, Screen, Sub, Title } from "@/components/ui";
-import { Colors } from "@/constants/theme";
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  KeypadKey,
+  PulsingText,
+  Row,
+  Screen,
+  SectionHeader,
+  Sub,
+  TransactionRow,
+} from "@/components/ui";
+import { Colors, Spacing } from "@/constants/theme";
 import { scoreTap } from "@/fraud/scoreTap";
-import type { TxnDoc } from "@/firebase/types";
+import type { TxnDoc, TxnStatus, TxnType } from "@/firebase/types";
 import { getNfc, type TagPayload } from "@/nfc";
 import { hmacForTag } from "@/nfc/hmac";
 import { useSession } from "@/session/SessionContext";
@@ -14,10 +28,29 @@ import { formatInr, getLedger, rupeesToPaise } from "@/wallet";
 
 type Phase = "idle" | "listen" | "processing" | "success" | "insufficient" | "frozen" | "error";
 
-const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
+const KEY_ROWS = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  [".", "0", "⌫"],
+] as const;
+
+function txnTone(type: TxnType, status: TxnStatus) {
+  if (status === "error") {
+    return "danger" as const;
+  }
+  if (status === "insufficient" || status === "frozen") {
+    return "warn" as const;
+  }
+  if (type === "pay") {
+    return "merchant" as const;
+  }
+  return "accent" as const;
+}
 
 export default function MerchantPos() {
   useKeepAwake();
+  const navigation = useNavigation();
   const session = useSession();
   const ledger = getLedger();
   const nfc = getNfc();
@@ -100,6 +133,15 @@ export default function MerchantPos() {
     };
   }, [phase, nfc, onTag]);
 
+  const listening = phase === "listen" || phase === "processing";
+
+  useEffect(() => {
+    navigation.setOptions({ headerShown: !listening });
+    return () => {
+      navigation.setOptions({ headerShown: true });
+    };
+  }, [navigation, listening]);
+
   function key(k: string) {
     if (k === "⌫") {
       setAmount((a) => a.slice(0, -1));
@@ -108,97 +150,178 @@ export default function MerchantPos() {
     setAmount((a) => (a + k).replace(/^0+(?=\d)/, "").slice(0, 8));
   }
 
-  const tone =
+  const statusTone =
     phase === "success"
-      ? Colors.ok
+      ? "ok"
       : phase === "insufficient" || phase === "frozen"
-        ? Colors.warn
+        ? "warn"
         : phase === "error"
-          ? Colors.danger
-          : phase === "listen"
-            ? Colors.merchant
-            : Colors.accent;
+          ? "danger"
+          : "muted";
+
+  async function simulateTap() {
+    const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
+    await onTag(payload);
+  }
+
+  function startListen() {
+    setPhase("listen");
+    setMessage("Hold the wristband to this phone.");
+  }
+
+  function cancelListen() {
+    setPhase("idle");
+    setMessage("Enter amount, then listen for a tap.");
+  }
+
+  if (listening) {
+    return (
+      <SafeAreaView style={styles.listenSafe} edges={["top", "bottom"]}>
+        <Text style={styles.listenAmount}>₹{amount || "0"}</Text>
+        <View style={styles.listenCenter}>
+          <PulsingText color={Colors.merchant}>WAITING FOR TAP</PulsingText>
+          <Text style={styles.listenHint}>Hold the wristband to this phone</Text>
+          {nfc.kind === "mock" && phase === "listen" ? (
+            <Button label="Simulate tap" tone="merchant" onPress={() => void simulateTap()} />
+          ) : null}
+        </View>
+        <Button label="Cancel" tone="ghost" onPress={cancelListen} disabled={phase === "processing"} />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <Screen>
-      <Title>Stall POS</Title>
-      <Sub>Screen stays awake. Tag is ID only — deduct is atomic in the ledger.</Sub>
+    <Screen style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.headerTitle}>Point of Sale</Text>
 
-      <View style={[styles.target, { borderColor: tone }]}>
-        <Text style={styles.amount}>₹{amount || "0"}</Text>
-        <Text style={[styles.phase, { color: tone }]}>{phase.toUpperCase()}</Text>
-        <Text style={styles.msg}>{message}</Text>
-        {balance != null ? <Text style={styles.msg}>Wallet {formatInr(balance)}</Text> : null}
-      </View>
+        <Card style={styles.amountCard}>
+          <Text style={styles.amountLabel}>Amount</Text>
+          <Text style={styles.amount}>₹{amount || "0"}</Text>
+          <Row style={styles.statusRow}>
+            <Badge label={phase.toUpperCase()} tone={statusTone} />
+            <Text style={styles.statusMessage}>{message}</Text>
+          </Row>
+          {balance != null ? <Text style={styles.balanceLeft}>Wallet {formatInr(balance)}</Text> : null}
+        </Card>
 
-      <View style={styles.keys}>
-        {KEYS.map((k) => (
-          <Pressable accessibilityRole="button" accessibilityLabel={k} key={k} onPress={() => key(k)} style={styles.key}>
-            <Text style={styles.keyText}>{k}</Text>
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.keypad}>
+          {KEY_ROWS.map((row, rowIndex) => (
+            <Row key={`row-${rowIndex}`}>
+              {row.map((k) => (
+                <KeypadKey key={k} label={k} onPress={() => key(k)} />
+              ))}
+            </Row>
+          ))}
+        </View>
 
-      {phase === "listen" ? (
-        <Button label="Cancel listen" tone="ghost" onPress={() => setPhase("idle")} />
-      ) : (
-        <Button
-          label="Listen for tap"
-          tone="merchant"
-          onPress={() => {
-            setPhase("listen");
-            setMessage("Hold the wristband to this phone.");
-          }}
-        />
-      )}
+        <Button label="Confirm & listen" tone="merchant" onPress={startListen} />
 
-      <Field
-        value={uidOverride}
-        onChangeText={setUidOverride}
-        placeholder="UID for simulate tap"
-        autoCapitalize="characters"
-      />
-      <Button
-        label="Simulate tap"
-        onPress={async () => {
-          const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
-          await onTag(payload);
-        }}
-      />
+        <Card>
+          <SectionHeader>Developer tools</SectionHeader>
+          <Field
+            value={uidOverride}
+            onChangeText={setUidOverride}
+            placeholder="UID for simulate tap"
+            autoCapitalize="characters"
+          />
+          <Button label="Simulate tap" tone="ghost" onPress={() => void simulateTap()} />
+        </Card>
 
-      <Card>
-        {txns.map((t) => (
-          <Text key={t.id} style={styles.txn}>
-            {t.type} {formatInr(t.amountPaise)} · {t.uid.slice(0, 8)} · {t.status}
-          </Text>
-        ))}
-      </Card>
+        <Card>
+          <SectionHeader>Recent transactions</SectionHeader>
+          {txns.length === 0 ? <Sub>No transactions yet</Sub> : null}
+          {txns.map((t) => (
+            <TransactionRow
+              key={t.id}
+              title={t.type.toUpperCase()}
+              subtitle={`${t.uid.slice(0, 8)} · ${t.status}`}
+              amount={formatInr(t.amountPaise)}
+              time={new Date(t.createdAt).toLocaleTimeString()}
+              tone={txnTone(t.type, t.status)}
+            />
+          ))}
+        </Card>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  target: {
-    minHeight: 180,
-    borderWidth: 2,
-    borderRadius: 24,
+  screen: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
+  scroll: {
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 48,
+  },
+  headerTitle: {
+    color: Colors.merchant,
+    fontSize: 24,
+    fontWeight: "700",
+    paddingTop: Spacing.sm,
+  },
+  amountCard: {
     alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    backgroundColor: Colors.card,
     gap: 6,
   },
-  amount: { color: Colors.text, fontSize: 48, fontWeight: "800" },
-  phase: { fontWeight: "800", letterSpacing: 2 },
-  msg: { color: Colors.muted, textAlign: "center" },
-  keys: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  key: {
-    width: "31%",
-    backgroundColor: Colors.cardAlt,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
+  amountLabel: {
+    color: Colors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
-  keyText: { color: Colors.text, fontSize: 20, fontWeight: "700" },
-  txn: { color: Colors.text },
+  amount: {
+    color: Colors.text,
+    fontSize: 48,
+    fontWeight: "700",
+    letterSpacing: -1,
+  },
+  statusRow: {
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginTop: 4,
+  },
+  statusMessage: {
+    color: Colors.muted,
+    fontSize: 13,
+    flex: 1,
+  },
+  balanceLeft: {
+    color: Colors.muted,
+    fontSize: 13,
+  },
+  keypad: {
+    gap: Spacing.sm,
+  },
+  listenSafe: {
+    flex: 1,
+    backgroundColor: Colors.bg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    justifyContent: "space-between",
+  },
+  listenAmount: {
+    color: Colors.text,
+    fontSize: 56,
+    fontWeight: "700",
+    textAlign: "center",
+    paddingTop: Spacing.sm,
+  },
+  listenCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  listenHint: {
+    color: Colors.muted,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });

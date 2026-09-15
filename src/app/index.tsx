@@ -1,18 +1,40 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Button, Field, Sub, Title } from "@/components/ui";
-import { Colors, Spacing } from "@/constants/theme";
+import { Badge, Button, Card, Field, Row } from "@/components/ui";
+import { Colors, Spacing, withAlpha } from "@/constants/theme";
 import type { Role } from "@/firebase/types";
-import { useSession } from "@/session/SessionContext";
 import { getNfc } from "@/nfc";
+import { useSession } from "@/session/SessionContext";
+
+const ROLES: { id: Role; title: string; description: string; color: string }[] = [
+  {
+    id: "user",
+    title: "User",
+    description: "Bind tag, load rupees, watch balance",
+    color: Colors.user,
+  },
+  {
+    id: "merchant",
+    title: "Merchant",
+    description: "Amount keypad and tap to deduct",
+    color: Colors.merchant,
+  },
+  {
+    id: "admin",
+    title: "Admin",
+    description: "Freeze tags and replay ledger",
+    color: Colors.admin,
+  },
+];
 
 export default function RolePicker() {
   const router = useRouter();
   const session = useSession();
   const [name, setName] = useState(session.displayName);
+  const [selected, setSelected] = useState<Role | null>(null);
   const nfc = getNfc();
 
   async function go(role: Role) {
@@ -21,14 +43,17 @@ export default function RolePicker() {
     router.push(`/${role}`);
   }
 
+  const continueTone = selected ?? "accent";
+
   return (
     <SafeAreaView style={styles.safe}>
-      <Title>TapPay</Title>
-      <Sub>Closed-loop NFC tap-to-pay. The phone is the POS. The tag is only an ID.</Sub>
-
-      <View style={styles.pills}>
-        <Text style={styles.pill}>Ledger: {session.backend}</Text>
-        <Text style={styles.pill}>NFC: {nfc.kind}</Text>
+      <View style={styles.header}>
+        <Text style={styles.brand}>TapPay</Text>
+        <Text style={styles.tagline}>Closed-loop NFC payments</Text>
+        <Row style={styles.badges}>
+          <Badge label={`Ledger: ${session.backend}`} tone="accent" />
+          <Badge label={`NFC: ${nfc.kind}`} tone={nfc.kind === "mock" ? "warn" : "ok"} />
+        </Row>
       </View>
 
       <Field
@@ -38,21 +63,36 @@ export default function RolePicker() {
         autoCapitalize="words"
       />
 
-      <Pressable accessibilityRole="button" accessibilityLabel="User" style={[styles.role, { borderColor: Colors.user }]} onPress={() => go("user")}>
-        <Text style={styles.roleKicker}>User</Text>
-        <Text style={styles.roleTitle}>Bind tag, load rupees, watch balance</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Merchant" style={[styles.role, { borderColor: Colors.merchant }]} onPress={() => go("merchant")}>
-        <Text style={[styles.roleKicker, { color: Colors.merchant }]}>Merchant</Text>
-        <Text style={styles.roleTitle}>Amount keypad + tap to deduct</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Admin" style={[styles.role, { borderColor: Colors.admin }]} onPress={() => go("admin")}>
-        <Text style={[styles.roleKicker, { color: Colors.admin }]}>Admin</Text>
-        <Text style={styles.roleTitle}>Freeze tags, replay ledger</Text>
-      </Pressable>
+      <View style={styles.cards}>
+        {ROLES.map((role) => {
+          const active = selected === role.id;
+          return (
+            <Card
+              key={role.id}
+              accessibilityLabel={role.title}
+              onPress={() => setSelected(role.id)}
+              style={[
+                styles.roleCard,
+                { borderLeftColor: role.color },
+                active ? { backgroundColor: withAlpha(role.color, 0.08) } : null,
+              ]}
+            >
+              <Text style={[styles.roleTitle, { color: role.color }]}>{role.title}</Text>
+              <Text style={styles.roleDescription}>{role.description}</Text>
+            </Card>
+          );
+        })}
+      </View>
 
-      {!session.ready ? <Sub>Signing in…</Sub> : null}
-      <Button label="Continue as user" onPress={() => go("user")} />
+      <View style={styles.footer}>
+        {!session.ready ? <Text style={styles.signingIn}>Signing in…</Text> : null}
+        <Button
+          label={selected ? `Continue as ${ROLES.find((r) => r.id === selected)?.title}` : "Select a role"}
+          tone={continueTone}
+          disabled={!selected || !session.ready}
+          onPress={() => selected && go(selected)}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -61,32 +101,51 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: Colors.bg,
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
-  pills: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  pill: {
+  header: {
+    gap: 6,
+    marginBottom: Spacing.md,
+  },
+  brand: {
+    color: Colors.text,
+    fontSize: 32,
+    fontWeight: "700",
+  },
+  tagline: {
     color: Colors.muted,
-    borderColor: Colors.line,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    fontSize: 12,
+    fontSize: 13,
   },
-  role: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: Colors.card,
+  badges: {
+    marginTop: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  cards: {
+    flex: 1,
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  roleCard: {
+    borderLeftWidth: 3,
     gap: 4,
   },
-  roleKicker: {
-    color: Colors.user,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    fontSize: 12,
-    letterSpacing: 1,
+  roleTitle: {
+    fontSize: 17,
+    fontWeight: "600",
   },
-  roleTitle: { color: Colors.text, fontSize: 16 },
+  roleDescription: {
+    color: Colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  footer: {
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  signingIn: {
+    color: Colors.muted,
+    fontSize: 13,
+    textAlign: "center",
+  },
 });

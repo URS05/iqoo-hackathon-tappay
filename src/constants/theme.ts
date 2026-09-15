@@ -21,3 +21,26 @@ export const Spacing = {
   lg: 24,
   xl: 32,
 } as const;
+
+export type ToneColor =
+  | "accent"
+  | "ok"
+  | "warn"
+  | "danger"
+  | "muted"
+  | "merchant"
+  | "user"
+  | "admin";
+
+export function toneColor(tone: ToneColor): string {
+  return Colors[tone];
+}
+
+/** Hex color with alpha channel for borders and tinted surfaces. */
+export function withAlpha(hex: string, alpha: number): string {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
