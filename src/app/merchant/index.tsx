@@ -1,10 +1,12 @@
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
+import { useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button, Card, Field, Screen, Sub, Title } from "@/components/ui";
-import { Colors } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { scoreTap } from "@/fraud/scoreTap";
 import type { TxnDoc } from "@/firebase/types";
 import { getNfc, type TagPayload } from "@/nfc";
@@ -18,6 +20,7 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
 
 export default function MerchantPos() {
   useKeepAwake();
+  const navigation = useNavigation();
   const session = useSession();
   const ledger = getLedger();
   const nfc = getNfc();
@@ -100,6 +103,15 @@ export default function MerchantPos() {
     };
   }, [phase, nfc, onTag]);
 
+  const listening = phase === "listen" || phase === "processing";
+
+  useEffect(() => {
+    navigation.setOptions({ headerShown: !listening });
+    return () => {
+      navigation.setOptions({ headerShown: true });
+    };
+  }, [navigation, listening]);
+
   function key(k: string) {
     if (k === "⌫") {
       setAmount((a) => a.slice(0, -1));
@@ -115,9 +127,38 @@ export default function MerchantPos() {
         ? Colors.warn
         : phase === "error"
           ? Colors.danger
-          : phase === "listen"
+          : phase === "listen" || phase === "processing"
             ? Colors.merchant
             : Colors.accent;
+
+  async function simulateTap() {
+    const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
+    await onTag(payload);
+  }
+
+  function cancelListen() {
+    setPhase("idle");
+    setMessage("Enter amount, then listen for a tap.");
+  }
+
+  if (listening) {
+    return (
+      <SafeAreaView style={styles.listenSafe} edges={["top", "bottom"]}>
+        <Text style={styles.listenAmount}>₹{amount || "0"}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="LISTEN"
+          style={[styles.listenZone, { borderColor: tone }]}
+          onPress={nfc.kind === "mock" && phase === "listen" ? () => void simulateTap() : undefined}
+          disabled={phase !== "listen"}
+        >
+          <Text style={[styles.listenWord, { color: tone }]}>LISTEN</Text>
+          <Text style={styles.listenHint}>Hold the wristband to this phone</Text>
+        </Pressable>
+        <Button label="Cancel" tone="ghost" onPress={cancelListen} disabled={phase === "processing"} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <Screen>
@@ -139,18 +180,14 @@ export default function MerchantPos() {
         ))}
       </View>
 
-      {phase === "listen" ? (
-        <Button label="Cancel listen" tone="ghost" onPress={() => setPhase("idle")} />
-      ) : (
-        <Button
-          label="Listen for tap"
-          tone="merchant"
-          onPress={() => {
-            setPhase("listen");
-            setMessage("Hold the wristband to this phone.");
-          }}
-        />
-      )}
+      <Button
+        label="Listen for tap"
+        tone="merchant"
+        onPress={() => {
+          setPhase("listen");
+          setMessage("Hold the wristband to this phone.");
+        }}
+      />
 
       <Field
         value={uidOverride}
@@ -158,13 +195,7 @@ export default function MerchantPos() {
         placeholder="UID for simulate tap"
         autoCapitalize="characters"
       />
-      <Button
-        label="Simulate tap"
-        onPress={async () => {
-          const payload = await nfc.simulateTap(uidOverride || session.lastTagUid || undefined);
-          await onTag(payload);
-        }}
-      />
+      <Button label="Simulate tap" onPress={() => void simulateTap()} />
 
       <Card>
         {txns.map((t) => (
@@ -201,4 +232,39 @@ const styles = StyleSheet.create({
   },
   keyText: { color: Colors.text, fontSize: 20, fontWeight: "700" },
   txn: { color: Colors.text },
+  listenSafe: {
+    flex: 1,
+    backgroundColor: Colors.bg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  listenAmount: {
+    color: Colors.text,
+    fontSize: 56,
+    fontWeight: "800",
+    textAlign: "center",
+    paddingTop: Spacing.sm,
+  },
+  listenZone: {
+    flex: 1,
+    marginVertical: Spacing.lg,
+    borderWidth: 3,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.card,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+  },
+  listenWord: {
+    fontSize: 36,
+    fontWeight: "800",
+    letterSpacing: 6,
+  },
+  listenHint: {
+    color: Colors.muted,
+    fontSize: 18,
+    textAlign: "center",
+    lineHeight: 26,
+  },
 });
